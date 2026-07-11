@@ -1,0 +1,11 @@
+{
+  "name": "retirement-bridge-calculator",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Personal early-retirement bridge calculator — static, no dependencies.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/calc.test.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}

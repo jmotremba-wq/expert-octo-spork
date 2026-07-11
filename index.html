@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Retirement Bridge Calculator</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23171b20'/%3E%3Cpath d='M2 12 L6 8 L9 10 L14 4' stroke='%233987e5' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Retirement Bridge Calculator</h1>
+    <p>
+      Early retirement with a Guard/Reserve pension at 60, tax-free VA disability,
+      two Social Security benefits, and pre-59½ account access rules — all modeled
+      year by year in today's dollars. Data stays in this browser
+      (<code>localStorage</code>); nothing is uploaded.
+    </p>
+  </header>
+
+  <main class="layout">
+    <aside id="inputs" aria-label="Plan inputs"></aside>
+    <section id="results" aria-label="Projection results" aria-live="polite"></section>
+  </main>
+
+  <noscript><p class="noscript">This calculator needs JavaScript enabled.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
