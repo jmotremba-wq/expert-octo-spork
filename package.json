@@ -5,7 +5,7 @@
   "description": "Personal early-retirement bridge calculator — static, no dependencies.",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/calc.test.mjs",
+    "test": "node --test tests/calc.test.mjs tests/advisor.test.mjs",
     "serve": "python3 -m http.server 8080"
   }
 }

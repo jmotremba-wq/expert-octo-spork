@@ -5,6 +5,7 @@ import {
   realRate, defaultInputs, incomeSources, spendingAt, netIncomeAt,
   simulate, phases, maxSustainableSpending, earliestSustainableRetireAge,
   SS_FACTORS, PRETAX_ACCESS_AGE,
+  SCENARIOS, CUSTOM_SCENARIO, applyCustomOverrides, runAllScenarios,
 } from "../calc.js";
 
 const approx = (a, b, eps = 1e-6) =>
@@ -155,6 +156,62 @@ test("earliestSustainableRetireAge yields a sustainable plan", () => {
       assert.equal(simulate(trial).sustainable, false);
     }
   }
+});
+
+test("each preset scenario changes exactly the intended inputs", () => {
+  const base = defaultInputs();
+  const by = Object.fromEntries(SCENARIOS.map((s) => [s.key, s]));
+
+  const later = by.retireLater.apply(structuredClone(base));
+  assert.equal(later.profile.retireAge, base.profile.retireAge + 2);
+  assert.equal(later.spending.baseAnnual, base.spending.baseAnnual);
+
+  const trim = by.trimSpending.apply(structuredClone(base));
+  approx(trim.spending.baseAnnual, base.spending.baseAnnual * 0.85);
+  assert.equal(trim.profile.retireAge, base.profile.retireAge);
+
+  const stress = by.marketStress.apply(structuredClone(base));
+  approx(stress.market.nominalReturnPct, base.market.nominalReturnPct - 1.5);
+
+  const cut = by.ssCut.apply(structuredClone(base));
+  approx(cut.ss.aMonthlyPIA, base.ss.aMonthlyPIA * 0.77);
+  approx(cut.ss.bMonthlyPIA, base.ss.bMonthlyPIA * 0.77);
+  assert.equal(cut.ss.aClaimAge, base.ss.aClaimAge);
+
+  const delay = by.delaySS.apply(structuredClone(base));
+  assert.equal(delay.ss.aClaimAge, 70);
+  assert.equal(delay.ss.bClaimAge, 70);
+  assert.equal(delay.ss.aMonthlyPIA, base.ss.aMonthlyPIA);
+
+  const untouched = by.baseline.apply(structuredClone(base));
+  assert.deepEqual(untouched, base);
+});
+
+test("runAllScenarios returns baseline + all presets + custom, and never mutates the base inputs", () => {
+  const base = defaultInputs();
+  const snapshot = structuredClone(base);
+  const results = runAllScenarios(base, { retireAge: 58 });
+  for (const s of SCENARIOS) {
+    assert.ok(results[s.key], `missing scenario ${s.key}`);
+    assert.ok(results[s.key].sim.years.length > 0);
+    assert.equal(typeof results[s.key].maxSpend, "number");
+  }
+  assert.ok(results.custom);
+  assert.equal(results.custom.scenario.key, CUSTOM_SCENARIO.key);
+  assert.equal(results.custom.inputs.profile.retireAge, 58);
+  assert.deepEqual(base, snapshot, "base inputs were mutated");
+});
+
+test("applyCustomOverrides applies only the provided fields", () => {
+  const base = defaultInputs();
+  const out = applyCustomOverrides(structuredClone(base), {
+    spendingBase: 140000, ssClaimAgeBoth: 70,
+  });
+  assert.equal(out.spending.baseAnnual, 140000);
+  assert.equal(out.ss.aClaimAge, 70);
+  assert.equal(out.ss.bClaimAge, 70);
+  assert.equal(out.profile.retireAge, base.profile.retireAge);
+  assert.equal(out.market.nominalReturnPct, base.market.nominalReturnPct);
 });
 
 test("hard assets grow at their own real rates", () => {

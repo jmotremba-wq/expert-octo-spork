@@ -33,17 +33,28 @@ the Fisher relation, so COLA'd income (pension/VA/SS) reads at face value.
 
 ## What it shows
 
-- **KPI bar** — balance at retirement, how long the money lasts, **max
-  sustainable spending** (bisection solver), and **earliest sustainable
-  retirement age**.
-- **Stacked-area projection** of the five buckets (pre-tax, Roth, taxable,
-  hard assets, cash) by age, with retire/pension/SS markers and a hover
-  tooltip. A year-by-year table carries the same data.
-- **"The bridge, phase by phase"** — each segment between income steps
-  (retire → pension → SS), with net income, spending, and the portfolio draw
-  the segment demands.
-- **Alerts** — sustainability verdict and a pre-59½ access-gap warning with
-  total penalties incurred.
+The page reads like a meeting with an advisor, top to bottom:
+
+- **Verdict hero** — one plain-English sentence on whether the plan holds,
+  with the three headline numbers (money lasts until / balance at retirement /
+  max sustainable spending).
+- **What-if scenarios** — curated presets compared side-by-side against the
+  baseline (retire 2 years later, spend 15% less, weak markets, a 23% Social
+  Security cut, claiming at 70), plus a **"My scenario"** with free tweaks to
+  retirement age, spending, returns, and SS claim age.
+- **Side-by-side table** — lasts-until, balance at retirement, max spend,
+  bridge draw, and penalties for every active scenario.
+- **Advisor's notes** — rule-based recommendations generated from the numbers:
+  bridge funding (Roth conversion ladder / 72(t) when accessible money runs
+  short), sequence-of-returns exposure, spending headroom, earliest viable
+  retirement age, and return sensitivity.
+- **Comparison chart** — portfolio balance by age, one line per scenario, with
+  direct labels and retire/pension/SS markers.
+- **The fine print** — bridge phases, income sources, and the year-by-year
+  table for any chosen scenario; all inputs live in a collapsed
+  **"Your numbers"** section at the bottom.
+
+Light theme, mobile-first (portrait or landscape).
 
 ## Data & privacy
 
@@ -57,11 +68,12 @@ stored blob.
 | File          | Purpose                                                    |
 | ------------- | ---------------------------------------------------------- |
 | `index.html`  | Page shell.                                                |
-| `styles.css`  | Dark finance-terminal theme.                               |
-| `calc.js`     | Pure model: simulation, phases, solvers. No DOM.           |
-| `chart.js`    | Inline-SVG stacked area chart + hover layer.               |
-| `app.js`      | Form, localStorage persistence, results rendering.         |
-| `tests/`      | `node --test` suite for the model (`npm test`).            |
+| `styles.css`  | Light, mobile-first theme.                                 |
+| `calc.js`     | Pure model: simulation, phases, solvers, scenarios. No DOM.|
+| `advisor.js`  | Pure rule engine that writes the advisor's notes.          |
+| `chart.js`    | Inline-SVG scenario comparison chart + hover layer.        |
+| `app.js`      | Page flow, scenario chips, form, localStorage persistence. |
+| `tests/`      | `node --test` suites for model + advisor (`npm test`).     |
 
 ## Running
 

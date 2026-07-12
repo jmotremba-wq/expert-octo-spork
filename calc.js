@@ -301,3 +301,87 @@ export function earliestSustainableRetireAge(inp) {
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ *
+ * Scenarios — advisor-style what-ifs applied on top of baseline inputs
+ * ------------------------------------------------------------------ */
+
+// Fixed identities with fixed colors (validated light palette order —
+// color follows the scenario, never its position in the visible set).
+export const SCENARIOS = [
+  {
+    key: "baseline", label: "Your plan", short: "Baseline", color: "#2a78d6",
+    describe: () => "Your inputs exactly as entered.",
+    apply: (inp) => inp,
+  },
+  {
+    key: "retireLater", label: "Retire later", short: "+2 yrs work", color: "#1baf7a",
+    describe: (inp) => `Retire at ${retireLaterAge(inp)} instead of ${n(inp.profile.retireAge)}.`,
+    apply: (inp) => { inp.profile.retireAge = retireLaterAge(inp); return inp; },
+  },
+  {
+    key: "trimSpending", label: "Spend 15% less", short: "−15% spend", color: "#eda100",
+    describe: (inp) => `Trim annual spending to ${Math.round(n(inp.spending.baseAnnual) * 0.85).toLocaleString("en-US")}.`,
+    apply: (inp) => { inp.spending.baseAnnual = n(inp.spending.baseAnnual) * 0.85; return inp; },
+  },
+  {
+    key: "marketStress", label: "Weak markets", short: "Return −1.5%", color: "#008300",
+    describe: (inp) => `Nominal return of ${(n(inp.market.nominalReturnPct) - 1.5).toFixed(1)}% instead of ${n(inp.market.nominalReturnPct)}%.`,
+    apply: (inp) => { inp.market.nominalReturnPct = n(inp.market.nominalReturnPct) - 1.5; return inp; },
+  },
+  {
+    key: "ssCut", label: "Social Security cut", short: "SS −23%", color: "#4a3aa7",
+    describe: () => "Both benefits reduced 23% (trust-fund shortfall haircut).",
+    apply: (inp) => {
+      inp.ss.aMonthlyPIA = n(inp.ss.aMonthlyPIA) * 0.77;
+      inp.ss.bMonthlyPIA = n(inp.ss.bMonthlyPIA) * 0.77;
+      return inp;
+    },
+  },
+  {
+    key: "delaySS", label: "Delay SS to 70", short: "SS at 70", color: "#e34948",
+    describe: () => "Both earners claim Social Security at 70 (124% of PIA).",
+    apply: (inp) => { inp.ss.aClaimAge = 70; inp.ss.bClaimAge = 70; return inp; },
+  },
+];
+
+export const CUSTOM_SCENARIO = {
+  key: "custom", label: "My scenario", short: "Custom", color: "#e87ba4",
+};
+
+function retireLaterAge(inp) {
+  return n(inp.profile.retireAge) + 2;
+}
+
+// Custom overrides: only the fields the "My scenario" panel exposes.
+export function applyCustomOverrides(inp, ov = {}) {
+  if (ov.retireAge != null)        inp.profile.retireAge = n(ov.retireAge);
+  if (ov.spendingBase != null)     inp.spending.baseAnnual = n(ov.spendingBase);
+  if (ov.nominalReturnPct != null) inp.market.nominalReturnPct = n(ov.nominalReturnPct);
+  if (ov.ssClaimAgeBoth != null) {
+    inp.ss.aClaimAge = n(ov.ssClaimAgeBoth);
+    inp.ss.bClaimAge = n(ov.ssClaimAgeBoth);
+  }
+  return inp;
+}
+
+export function runScenario(baseInputs, scenario, customOverrides) {
+  const inputs = scenario.key === "custom"
+    ? applyCustomOverrides(structuredClone(baseInputs), customOverrides)
+    : scenario.apply(structuredClone(baseInputs));
+  return {
+    scenario,
+    inputs,
+    sim: simulate(inputs),
+    maxSpend: maxSustainableSpending(inputs),
+    earliestAge: earliestSustainableRetireAge(inputs),
+  };
+}
+
+// Baseline + presets + custom, in fixed order. Results keyed by scenario key.
+export function runAllScenarios(baseInputs, customOverrides = {}) {
+  const results = {};
+  for (const s of SCENARIOS) results[s.key] = runScenario(baseInputs, s, customOverrides);
+  results.custom = runScenario(baseInputs, CUSTOM_SCENARIO, customOverrides);
+  return results;
+}

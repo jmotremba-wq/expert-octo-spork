@@ -3,24 +3,31 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#f9f9f7"/>
   <title>Retirement Bridge Calculator</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23171b20'/%3E%3Cpath d='M2 12 L6 8 L9 10 L14 4' stroke='%233987e5' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23fcfcfb' stroke='%23e1e0d9'/%3E%3Cpath d='M2 12 L6 8 L9 10 L14 4' stroke='%232a78d6' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"/>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
   <header class="app-header">
     <h1>Retirement Bridge Calculator</h1>
     <p>
-      Early retirement with a Guard/Reserve pension at 60, tax-free VA disability,
-      two Social Security benefits, and pre-59½ account access rules — all modeled
-      year by year in today's dollars. Data stays in this browser
-      (<code>localStorage</code>); nothing is uploaded.
+      Let's see if your plan holds up — and what makes it stronger. Built around
+      your case: retire early, pension at 60, VA disability now, Social Security
+      later. Everything stays in this browser; nothing is uploaded.
     </p>
   </header>
 
-  <main class="layout">
-    <aside id="inputs" aria-label="Plan inputs"></aside>
-    <section id="results" aria-label="Projection results" aria-live="polite"></section>
+  <main>
+    <div id="results" aria-live="polite"></div>
+
+    <section class="card numbers-card">
+      <details>
+        <summary class="numbers-summary">Your numbers</summary>
+        <p class="numbers-hint">Every figure the projection uses. Changes save automatically to this browser.</p>
+        <div id="inputs"></div>
+      </details>
+    </section>
   </main>
 
   <noscript><p class="noscript">This calculator needs JavaScript enabled.</p></noscript>
