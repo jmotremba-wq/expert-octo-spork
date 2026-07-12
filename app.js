@@ -157,6 +157,134 @@ function guessTarget(name) {
   return "ignore";
 }
 
+/* ------------------------- lever bar ----------------------------- */
+// Always-visible sliders for the plan's key levers. Lives OUTSIDE #results
+// so re-renders never destroy a slider mid-drag: deterministic results
+// recompute while dragging, Monte Carlo on release.
+
+const LEVERS = [
+  {
+    key: "retireAge", label: "Retirement age",
+    min: (inp) => Number(inp.profile.currentAge) + 1, max: 70, step: 1,
+    fmt: (v) => `age ${v}`,
+    get: (inp) => inp.profile.retireAge,
+    set: (inp, v) => { inp.profile.retireAge = v; },
+  },
+  {
+    key: "return", label: "Investment return",
+    min: 2, max: 12, step: 0.1,
+    fmt: (v) => v.toFixed(1) + "%",
+    get: (inp) => inp.market.nominalReturnPct,
+    set: (inp, v) => { inp.market.nominalReturnPct = v; },
+  },
+  {
+    key: "spending", label: "Annual spending",
+    min: 60000, max: 400000, step: 5000,
+    fmt: (v) => fmtK(v) + "/yr",
+    get: (inp) => inp.spending.baseAnnual,
+    set: (inp, v) => { inp.spending.baseAnnual = v; },
+  },
+  {
+    key: "savings", label: "Annual savings",
+    min: 0, max: 200000, step: 5000,
+    fmt: (v) => fmtK(v) + "/yr",
+    get: (inp) => inp.contributions.annual,
+    set: (inp, v) => { inp.contributions.annual = v; },
+  },
+  {
+    key: "ssClaim", label: "SS claim age (both)",
+    min: 62, max: 70, step: 1,
+    fmt: (v) => `age ${v}`,
+    get: (inp) => inp.ss.aClaimAge,
+    set: (inp, v) => { inp.ss.aClaimAge = v; inp.ss.bClaimAge = v; },
+  },
+  {
+    key: "vol", label: "Volatility",
+    min: 0, max: 40, step: 1,
+    fmt: (v) => `±${v}%`,
+    get: (inp) => inp.market.volatilityPct,
+    set: (inp, v) => { inp.market.volatilityPct = v; },
+  },
+];
+
+const leverByKey = (key) => LEVERS.find((l) => l.key === key);
+
+function leverBounds(l) {
+  const val = Number(l.get(state.inputs));
+  const min = Math.min(typeof l.min === "function" ? l.min(state.inputs) : l.min, val);
+  const max = Math.max(l.max, val);
+  return { val, min, max };
+}
+
+function syncLevers() {
+  const root = document.getElementById("levers");
+  if (!root) return;
+  for (const l of LEVERS) {
+    const row = root.querySelector(`[data-lever="${l.key}"]`);
+    if (!row) continue;
+    const { val, min, max } = leverBounds(l);
+    const range = row.querySelector('input[type="range"]');
+    const num = row.querySelector('input[type="number"]');
+    range.min = min; range.max = max; range.value = val;
+    num.value = val;
+    row.querySelector("output").textContent = l.fmt(val);
+  }
+}
+
+let leverTimer = null;
+
+function initLevers() {
+  const root = document.getElementById("levers");
+  root.innerHTML = `
+    <h3>Adjust your plan</h3>
+    <div class="lever-grid">
+      ${LEVERS.map((l) => {
+        const { val, min, max } = leverBounds(l);
+        return `
+        <div class="lever" data-lever="${l.key}">
+          <div class="lever-head"><span>${l.label}</span><output>${l.fmt(val)}</output></div>
+          <div class="lever-controls">
+            <input type="range" min="${min}" max="${max}" step="${l.step}" value="${val}"
+                   aria-label="${l.label}"/>
+            <input type="number" inputmode="decimal" step="${l.step}" value="${val}"
+                   aria-label="${l.label} exact value"/>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  const applyFrom = (e) => {
+    const row = e.target.closest("[data-lever]");
+    if (!row) return null;
+    const l = leverByKey(row.dataset.lever);
+    const v = Number(e.target.value);
+    if (!Number.isFinite(v)) return null;
+    l.set(state.inputs, v);
+    // Mirror to the sibling control + readout without a full re-render.
+    row.querySelector('input[type="range"]').value = v;
+    if (e.target.type === "range") row.querySelector('input[type="number"]').value = v;
+    row.querySelector("output").textContent = l.fmt(v);
+    return l;
+  };
+
+  // Drag / typing: deterministic-only recompute, debounced.
+  root.addEventListener("input", (e) => {
+    if (!applyFrom(e)) return;
+    clearTimeout(leverTimer);
+    leverTimer = setTimeout(() => renderResults({ mc: false }), 150);
+  });
+
+  // Release / commit: persist and run the full render including Monte Carlo.
+  root.addEventListener("change", (e) => {
+    if (!applyFrom(e)) return;
+    clearTimeout(leverTimer);
+    save();
+    renderForm();
+    syncLevers(); // re-clamp slider bounds around the committed value
+    renderResults();
+  });
+}
+
 /* --------------------------- form -------------------------------- */
 
 const FORM_SECTIONS = [
@@ -289,6 +417,7 @@ function initForm() {
     const v = Number(e.target.value);
     setPath(state.inputs, path, Number.isFinite(v) ? v : 0);
     save();
+    syncLevers();
     renderResults();
   });
 
@@ -323,6 +452,7 @@ function initForm() {
       };
       save();
       renderForm();
+      syncLevers();
       renderResults();
     } catch (err) {
       alert(err.message);
@@ -460,7 +590,7 @@ function chipsSection() {
   </section>`;
 }
 
-function comparisonSection(results, mcByKey) {
+function comparisonSection(results, mcByKey, mcReady = true) {
   const rows = state.ui.active.map((key) => {
     const r = results[key];
     if (!r) return "";
@@ -470,7 +600,7 @@ function comparisonSection(results, mcByKey) {
       : `age ${r.inputs.profile.lifeExpectancy}+`;
     const bridgeDraw = phases(r.inputs)[0]?.draw ?? 0;
     const mc = mcByKey[key];
-    const successTxt = mc ? Math.round(mc.successRate * 100) + "%" : "—";
+    const successTxt = mc ? Math.round(mc.successRate * 100) + "%" : (mcReady ? "—" : "…");
     return `<tr>
       <td><span class="swatch" style="background:${s.color}"></span> ${s.label}</td>
       <td class="num">${successTxt}</td>
@@ -608,6 +738,7 @@ function wireUpdatePanel(out) {
       recordSnapshot();
       save();
       renderForm();
+      syncLevers();
       renderResults();
     });
   });
@@ -647,6 +778,7 @@ function wireUpdatePanel(out) {
     recordSnapshot();
     save();
     renderForm();
+    syncLevers();
     renderResults();
   });
   out.querySelector("#cancel-import-btn")?.addEventListener("click", () => {
@@ -658,7 +790,9 @@ function wireUpdatePanel(out) {
 
 /* -------------------------- results ------------------------------ */
 
-function renderResults() {
+// { mc: false } renders deterministic results only — used while a lever is
+// being dragged so the frame stays cheap; the release event re-renders fully.
+function renderResults({ mc = true } = {}) {
   const out = document.getElementById("results");
   const results = runAllScenarios(state.inputs, state.ui.custom);
   // Drop stale active keys, keep baseline always on and first.
@@ -669,17 +803,19 @@ function renderResults() {
 
   // Monte Carlo for active scenarios only (cached across renders).
   const mcByKey = {};
-  for (const key of state.ui.active) {
-    mcByKey[key] = monteCarloCached(key, results[key].inputs, { trials: MC_TRIALS, seed: 42 });
+  if (mc) {
+    for (const key of state.ui.active) {
+      mcByKey[key] = monteCarloCached(key, results[key].inputs, { trials: MC_TRIALS, seed: 42 });
+    }
   }
 
-  const advice = advise(results, state.inputs, mcByKey.baseline);
+  const advice = advise(results, state.inputs, mc ? mcByKey.baseline : null);
 
   out.innerHTML = `
     ${heroSection(advice[0], results)}
     ${updatePanelSection()}
     ${chipsSection()}
-    ${comparisonSection(results, mcByKey)}
+    ${comparisonSection(results, mcByKey, mc)}
     ${advisorSection(advice.slice(1))}
     ${chartSection()}
     ${detailsSection(results)}`;
@@ -773,4 +909,5 @@ window.addEventListener("afterprint", () => {
 });
 
 initForm();
+initLevers();
 renderResults();

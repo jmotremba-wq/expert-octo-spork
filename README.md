@@ -35,6 +35,10 @@ the Fisher relation, so COLA'd income (pension/VA/SS) reads at face value.
 
 The page reads like a meeting with an advisor, top to bottom:
 
+- **Adjust your plan** — six always-visible sliders for the levers that
+  matter: retirement age, investment return, annual spending, annual savings,
+  SS claim age (both earners), and volatility. Results recompute live as you
+  drag; Monte Carlo refreshes on release.
 - **Verdict hero** — one plain-English sentence on whether the plan holds,
   with the three headline numbers (money lasts until / balance at retirement /
   max sustainable spending).

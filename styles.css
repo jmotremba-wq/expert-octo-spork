@@ -173,6 +173,43 @@ main {
   gap: 10px;
 }
 
+/* ---------------- lever bar ---------------- */
+
+.levers-card { margin-top: 8px; }
+.levers-card h3 { margin: 0 0 10px; font-size: 16px; }
+.lever-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 22px;
+}
+.lever-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; color: var(--ink-2);
+  margin-bottom: 2px;
+}
+.lever-head output { font-weight: 650; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lever-controls { display: flex; gap: 10px; align-items: center; }
+.lever-controls input[type="range"] {
+  flex: 1;
+  min-height: 44px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+.lever-controls input[type="number"] {
+  width: 106px;
+  min-height: 44px;
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  color: var(--ink);
+  padding: 8px;
+  font: inherit;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.lever-controls input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
 /* ---------------- update balances panel ---------------- */
 
 .update-panel .stamp { font-size: 13px; color: var(--muted); }
@@ -397,6 +434,7 @@ tr.depleted td { color: var(--critical); }
   .no-print,
   .update-panel,
   .chips-card,
+  .levers-card,
   .numbers-card,
   .chart-tooltip { display: none !important; }
 
