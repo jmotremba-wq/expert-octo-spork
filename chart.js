@@ -24,7 +24,9 @@ function niceCeil(v) {
 }
 
 // series: [{ key, label, short, color, years: sim.years, emphasized }]
-export function renderChart(container, series, markers = []) {
+// band (optional): { percentiles: [{age,p10,p25,p75,p90}], color } — Monte
+// Carlo fan for the baseline, drawn beneath the lines.
+export function renderChart(container, series, markers = [], band = null) {
   // Size the viewBox to the container so SVG text renders ~1:1 (a fixed wide
   // viewBox scaled down to a phone makes labels illegible).
   const W = Math.max(320, Math.min(880, container.clientWidth || 760));
@@ -40,7 +42,11 @@ export function renderChart(container, series, markers = []) {
 
   const allYears = series[0].years;
   const minAge = allYears[0].age, maxAge = allYears[allYears.length - 1].age;
-  const yMax = niceCeil(Math.max(1, ...series.flatMap((s) => s.years.map((y) => y.total))));
+  const yMax = niceCeil(Math.max(
+    1,
+    ...series.flatMap((s) => s.years.map((y) => y.total)),
+    ...(band ? band.percentiles.map((p) => p.p90) : []),
+  ));
 
   const x = (age) => padL + ((age - minAge) / Math.max(1, maxAge - minAge)) * innerW;
   const y = (v) => padT + innerH - (Math.max(0, v) / yMax) * innerH;
@@ -70,6 +76,18 @@ export function renderChart(container, series, markers = []) {
           stroke="${MUTED}" stroke-width="1" stroke-dasharray="4 4" opacity="0.55"/>${label}`;
     }).join("");
 
+  // Monte Carlo fan: p10–p90 wash with a darker p25–p75 core, under the lines.
+  let bandSvg = "";
+  if (band) {
+    const poly = (loKey, hiKey, opacity) => {
+      const upper = band.percentiles.map((p) => `${x(p.age).toFixed(1)},${y(p[hiKey]).toFixed(1)}`);
+      const lower = band.percentiles.map((p) => `${x(p.age).toFixed(1)},${y(p[loKey]).toFixed(1)}`).reverse();
+      return `<polygon points="${upper.join(" ")} ${lower.join(" ")}"
+        fill="${band.color}" opacity="${opacity}" stroke="none"/>`;
+    };
+    bandSvg = poly("p10", "p90", 0.10) + poly("p25", "p75", 0.16);
+  }
+
   const lines = series.map((s) => {
     const pts = s.years.map((yr) => `${x(yr.age).toFixed(1)},${y(yr.total).toFixed(1)}`).join(" ");
     return `<polyline points="${pts}" fill="none" stroke="${s.color}"
@@ -97,6 +115,7 @@ export function renderChart(container, series, markers = []) {
         ${grid}
         <line x1="${padL}" y1="${padT + innerH}" x2="${W - padR}" y2="${padT + innerH}" stroke="${BASELINE_AXIS}" stroke-width="1"/>
         ${markerSvg}
+        ${bandSvg}
         ${lines}
         ${endLabels}
         <line class="crosshair" x1="0" y1="${padT}" x2="0" y2="${padT + innerH}"
@@ -140,4 +159,40 @@ export function renderChart(container, series, markers = []) {
     crosshair.setAttribute("opacity", "0");
     tip.hidden = true;
   });
+}
+
+/* --------------------------- sparkline ---------------------------- */
+
+// Tiny net-worth-over-time line from dated snapshots — no axes, first/last
+// values labeled. snapshots: [{ date: 'YYYY-MM-DD', total }].
+export function renderSparkline(container, snapshots) {
+  if (!snapshots || snapshots.length < 2) { container.innerHTML = ""; return; }
+
+  const W = Math.max(240, Math.min(560, container.clientWidth || 320));
+  const H = 56, padX = 4, padY = 8;
+  const ts = snapshots.map((s) => Date.parse(s.date));
+  const vals = snapshots.map((s) => s.total);
+  const tMin = Math.min(...ts), tMax = Math.max(...ts);
+  const vMin = Math.min(...vals), vMax = Math.max(...vals);
+  const x = (t) => padX + ((t - tMin) / Math.max(1, tMax - tMin)) * (W - 2 * padX);
+  const y = (v) => padY + (1 - (v - vMin) / Math.max(1, vMax - vMin)) * (H - 2 * padY);
+
+  const pts = snapshots.map((s, i) => `${x(ts[i]).toFixed(1)},${y(vals[i]).toFixed(1)}`).join(" ");
+  const last = snapshots[snapshots.length - 1];
+  const delta = last.total - snapshots[0].total;
+  const deltaTxt = (delta >= 0 ? "+" : "−") + fmtCompact(Math.abs(delta));
+
+  container.innerHTML = `
+    <div class="spark-row">
+      <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
+           aria-label="Net worth trend across ${snapshots.length} saved snapshots">
+        <polyline points="${pts}" fill="none" stroke="#2a78d6" stroke-width="2"
+          stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${x(ts[ts.length - 1]).toFixed(1)}" cy="${y(last.total).toFixed(1)}" r="3" fill="#2a78d6"/>
+      </svg>
+      <div class="spark-meta">
+        <span class="spark-val">${fmtCompact(last.total)}</span>
+        <span class="spark-delta">${deltaTxt} since ${snapshots[0].date}</span>
+      </div>
+    </div>`;
 }

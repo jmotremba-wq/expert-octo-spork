@@ -36,7 +36,7 @@ export function realRate(nominalPct, inflationPct) {
 export function defaultInputs() {
   return {
     profile: { currentAge: 41, retireAge: 53, lifeExpectancy: 92 },
-    market: { nominalReturnPct: 6.5, inflationPct: 2.5 },
+    market: { nominalReturnPct: 6.5, inflationPct: 2.5, volatilityPct: 12 },
     buckets: {
       cash: 37000,
       taxable: 770000,
@@ -46,9 +46,9 @@ export function defaultInputs() {
       rothBasis: 150000, // contributions — withdrawable any age, tax/penalty-free
     },
     hardAssets: [
-      { key: "gold",    label: "Gold",    value: 26400, growthPct: 4 },
-      { key: "silver",  label: "Silver",  value: 1500,  growthPct: 5 },
-      { key: "bitcoin", label: "Bitcoin", value: 14000, growthPct: 15 },
+      { key: "gold",    label: "Gold",    value: 26400, growthPct: 4,  volatilityPct: 15 },
+      { key: "silver",  label: "Silver",  value: 1500,  growthPct: 5,  volatilityPct: 25 },
+      { key: "bitcoin", label: "Bitcoin", value: 14000, growthPct: 15, volatilityPct: 60 },
     ],
     contributions: {
       annual: 60000,
@@ -119,7 +119,12 @@ export function netIncomeAt(inp, age, sources = incomeSources(inp)) {
  * Year-by-year simulation
  * ------------------------------------------------------------------ */
 
-export function simulate(inp) {
+// opts.shock — optional (yearIndex) → z, a standard-normal draw applied as a
+// single shared market factor: portfolio grows at r + σ·z, each hard asset at
+// rᵢ + σᵢ·z (fully correlated — a deliberate simplification). Without opts.shock
+// the simulation is exactly deterministic.
+export function simulate(inp, opts = {}) {
+  const shock = typeof opts.shock === "function" ? opts.shock : null;
   const { currentAge, retireAge, lifeExpectancy } = {
     currentAge: n(inp.profile.currentAge),
     retireAge: n(inp.profile.retireAge),
@@ -127,6 +132,7 @@ export function simulate(inp) {
   };
   const infl = inp.market.inflationPct;
   const r = realRate(inp.market.nominalReturnPct, infl);
+  const sigma = n(inp.market.volatilityPct) / 100;
   const sources = incomeSources(inp);
   const t = inp.taxes;
   const taxableRate = n(t.taxableDrawRatePct) / 100;
@@ -140,6 +146,7 @@ export function simulate(inp) {
   let rothBasis = Math.min(n(inp.buckets.rothBasis), roth);
   const hard = inp.hardAssets.map((a) => ({
     label: a.label, value: n(a.value), r: realRate(a.growthPct, infl),
+    sigma: n(a.volatilityPct) / 100,
   }));
 
   const c = inp.contributions;
@@ -162,11 +169,16 @@ export function simulate(inp) {
       spend: 0, drawGross: 0, penaltyPaid: 0, shortfall: 0,
     };
 
+    // This year's market factor (0 in deterministic runs). Growth factors are
+    // floored at 0 — a year can wipe out at most everything.
+    const z = shock ? shock(age - currentAge) : 0;
+    const g = Math.max(0, 1 + r + sigma * z);
+    const hardG = (a) => Math.max(0, 1 + a.r + a.sigma * z);
+
     if (age < retireAge) {
       // Accumulation: grow, then contribute at year end.
-      const g = 1 + r;
       cash *= g; taxable *= g; pretax *= g; roth *= g;
-      hard.forEach((a) => { a.value *= 1 + a.r; });
+      hard.forEach((a) => { a.value *= hardG(a); });
       const amt = n(c.annual);
       taxable += amt * split.taxable;
       pretax  += amt * split.pretax;
@@ -218,9 +230,8 @@ export function simulate(inp) {
         if (depletionAge == null) depletionAge = age;
       }
 
-      const g = 1 + r;
       cash *= g; taxable *= g; pretax *= g; roth *= g;
-      hard.forEach((a) => { a.value *= 1 + a.r; });
+      hard.forEach((a) => { a.value *= hardG(a); });
     }
 
     const hardTotal = hard.reduce((s, a) => s + a.value, 0);

@@ -49,12 +49,33 @@ The page reads like a meeting with an advisor, top to bottom:
   short), sequence-of-returns exposure, spending headroom, earliest viable
   retirement age, and return sensitivity.
 - **Comparison chart** — portfolio balance by age, one line per scenario, with
-  direct labels and retire/pension/SS markers.
+  direct labels, retire/pension/SS markers, and a **Monte Carlo fan band**
+  (10th–90th percentile of 1,000 simulated markets) around your plan.
+- **Success odds** — each scenario shows the share of simulated market
+  histories in which the money lasts, and the advisor's notes interpret it.
 - **The fine print** — bridge phases, income sources, and the year-by-year
   table for any chosen scenario; all inputs live in a collapsed
   **"Your numbers"** section at the bottom.
 
 Light theme, mobile-first (portrait or landscape).
+
+## Keeping balances current
+
+**Update balances** (button on the verdict card) opens a one-screen panel:
+
+- The nine balance fields in one grid, stamped with the last update date.
+- **CSV import** — drop or choose a file, or paste rows. Built for Monarch
+  Money's balance exports (per-account `Date,Balance` files) but tolerant of
+  anything with an account name and a balance column: delimiter sniffing,
+  `$1,234.56`/`(500)` parsing, unquoted thousands separators, latest-date-wins.
+  Each account maps to a bucket once and the mapping is remembered.
+- Every update records a dated **net-worth snapshot**; a sparkline shows your
+  actual trend once you have two or more.
+
+**Backup / restore** (bottom of "Your numbers") downloads everything —
+inputs, scenario settings, snapshots, mappings — as one JSON file and
+restores from it. **Print report** produces a clean summary (verdict,
+side-by-side table, advisor's notes, chart, fine print).
 
 ## Data & privacy
 
@@ -71,9 +92,11 @@ stored blob.
 | `styles.css`  | Light, mobile-first theme.                                 |
 | `calc.js`     | Pure model: simulation, phases, solvers, scenarios. No DOM.|
 | `advisor.js`  | Pure rule engine that writes the advisor's notes.          |
-| `chart.js`    | Inline-SVG scenario comparison chart + hover layer.        |
-| `app.js`      | Page flow, scenario chips, form, localStorage persistence. |
-| `tests/`      | `node --test` suites for model + advisor (`npm test`).     |
+| `mc.js`       | Seeded Monte Carlo engine (percentiles, success rate).     |
+| `import.js`   | CSV/paste parsing, bucket mapping, backup serialization.   |
+| `chart.js`    | Inline-SVG comparison chart, fan band, sparkline.          |
+| `app.js`      | Page flow, chips, update panel, form, persistence.         |
+| `tests/`      | `node --test` suites (`npm test`).                         |
 
 ## Running
 
@@ -94,3 +117,7 @@ Run the model tests with `npm test` (Node 18+, no installs needed).
 - 59½ is rounded up to age 60 (one conservative half-year).
 - Social Security taxation nuance (85% inclusion, etc.) is folded into the
   income tax rate you set.
+- Monte Carlo uses a **single shared market factor**: each simulated year
+  draws one normal shock applied to the portfolio (at your volatility %) and
+  to every hard asset (at its own volatility %) — i.e., fully correlated
+  markets, which is conservative for diversification but honest about crashes.

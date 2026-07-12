@@ -214,6 +214,18 @@ test("applyCustomOverrides applies only the provided fields", () => {
   assert.equal(out.market.nominalReturnPct, base.market.nominalReturnPct);
 });
 
+test("shock injection: z = 0 matches deterministic exactly; z ≠ 0 diverges", () => {
+  const inp = baseInputs();
+  const det = simulate(inp);
+  const zero = simulate(inp, { shock: () => 0 });
+  assert.deepEqual(zero.years, det.years);
+
+  const down = simulate(inp, { shock: () => -1 }); // persistent bad markets
+  assert.ok(down.ending < det.ending);
+  const up = simulate(inp, { shock: () => 1 });
+  assert.ok(up.ending > det.ending);
+});
+
 test("hard assets grow at their own real rates", () => {
   const inp = baseInputs({
     profile: { currentAge: 40, retireAge: 41, lifeExpectancy: 42 },

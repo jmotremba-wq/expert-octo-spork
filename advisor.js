@@ -16,7 +16,9 @@ const fmtK = (v) =>
 // working longer is the biggest life change.
 const FIX_ORDER = ["delaySS", "trimSpending", "retireLater", "ssCut"];
 
-export function advise(results, inputs) {
+// mcBaseline (optional): the Monte Carlo result for the baseline scenario —
+// { trials, successRate, medianEnding } — adds a probability-framed note.
+export function advise(results, inputs, mcBaseline = null) {
   const base = results.baseline;
   const items = [];
 
@@ -113,6 +115,36 @@ export function advise(results, inputs) {
         `${inputs.profile.lifeExpectancy} is ${earliest} — ${earliest - planned} more working ` +
         `year${earliest - planned !== 1 ? "s" : ""} than planned. Or pull one of the other levers instead.`,
     });
+  }
+
+  /* ---- 4b. Monte Carlo odds ---- */
+  if (mcBaseline) {
+    const pct = Math.round(mcBaseline.successRate * 100);
+    const vol = inputs.market.volatilityPct;
+    const common = `Across ${mcBaseline.trials.toLocaleString("en-US")} simulated market ` +
+      `histories (±${vol}% yearly swings), the plan works in ${pct}% of them; ` +
+      `the median outcome ends with ${fmtK(mcBaseline.medianEnding)}.`;
+    if (pct >= 85) {
+      items.push({
+        tone: "good",
+        title: `${pct}% chance of success in simulated markets`,
+        body: `${common} That's a comfortable margin — most planners aim for 80–90%.`,
+      });
+    } else if (pct >= 70) {
+      items.push({
+        tone: "watch",
+        title: `${pct}% chance of success — decent, not bulletproof`,
+        body: `${common} Below the 80–90% comfort zone: a modest spending trim or an extra ` +
+          `working year would move the odds meaningfully.`,
+      });
+    } else {
+      items.push({
+        tone: "action",
+        title: `Only ${pct}% of simulated markets carry this plan`,
+        body: `${common} Deterministic math can hide this — pull a lever (spending, timing, ` +
+          `or claiming) until the odds clear 80%.`,
+      });
+    }
   }
 
   /* ---- 5. Return sensitivity ---- */
